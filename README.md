@@ -238,3 +238,13 @@ This is the default mode. The system runs in parallal three threads: Tracking, L
 ### Localization Mode
 This mode can be used when you have a good map of your working area. In this mode the Local Mapping and Loop Closing are deactivated. The system localizes the camera in the map (which is no longer updated), using relocalization if needed. 
 
+# 10. Runing Using Docker
+
+<!-- ```bash
+docker run -it --privileged -v /dev/bus/usb:/dev/bus/usb --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v $(pwd):/ORB_SLAM2 11710414/orbslam2:ros-v0.1
+``` -->
+
+```bash
+cd ORB_SLAM2
+docker run -it --rm -e DISPLAY=$DISPLAY -v $(pwd):/ORB_SLAM2 -v /tmp/.X11-unix:/tmp/.X11-unix --network host 11710414/orbslam2:ros-v0.1
+```

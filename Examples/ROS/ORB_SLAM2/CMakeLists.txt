@@ -48,6 +48,10 @@ ${PROJECT_SOURCE_DIR}/../../../include
 ${Pangolin_INCLUDE_DIRS}
 )
 
+find_package(Boost COMPONENTS system filesystem REQUIRED)
+#target_link_libraries({{target_name}} ${Boost_FILESYSTEM_LIBRARY})
+#target_link_libraries({{target_name}} ${Boost_SYSTEM_LIBRARY})
+
 set(LIBS 
 ${OpenCV_LIBS} 
 ${EIGEN3_LIBS}
@@ -84,6 +88,8 @@ src/ros_stereo.cc
 
 target_link_libraries(Stereo
 ${LIBS}
+${Boost_FILESYSTEM_LIBRARY}
+${Boost_SYSTEM_LIBRARY}
 )
 
 # Node for RGB-D camera
@@ -93,5 +99,7 @@ src/ros_rgbd.cc
 
 target_link_libraries(RGBD
 ${LIBS}
+${Boost_FILESYSTEM_LIBRARY}
+${Boost_SYSTEM_LIBRARY}
 )
 
