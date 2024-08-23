@@ -1,0 +1,18 @@
+<launch>
+    <!-- Specify the path to the ORB-SLAM3 vocabulary and configuration files -->
+    <arg name="voc_file" default="/home/jarvis/jw_ws/SLAM_ws/ORB_SLAM3/Vocabulary/ORBvoc.txt"/>
+        <arg name="settings_file" default="$(find ORB_SLAM3)/config/EuRoC.yaml"/>
+            <arg name="kf_traj_file" default="$(find ORB_SLAM3)/output/traj/euroc_mono_kf_traj.txt"/>
+
+    <param name="voc_file" value="$(arg voc_file)"/>
+    <param name="settings_file" value="$(arg settings_file)"/>
+    <param name="kf_traj_file" value="$(arg kf_traj_file)"/>
+
+    <!-- Launch the ORB-SLAM3 node -->
+    <node name="ORB_SLAM3" pkg="ORB_SLAM3" type="Mono" output="screen">
+        <!-- Define the topics for the node -->
+        <remap from="/camera/image_raw" to="/cam0/image_raw"/> 
+    </node>
+
+    <!-- Optionally, you can include other nodes or configurations here -->
+</launch>
