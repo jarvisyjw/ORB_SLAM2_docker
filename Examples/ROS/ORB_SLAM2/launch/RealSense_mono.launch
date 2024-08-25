@@ -1,0 +1,19 @@
+<launch>
+    <!-- Specify the path to the ORB-SLAM2 vocabulary and configuration files -->
+    <arg name="voc_file" default="/ORB_SLAM2/Vocabulary/ORBvoc.txt"/>
+    <arg name="settings_file" default="$(find ORB_SLAM2)/config/realsense_d435i.yaml"/>
+    <arg name="kf_traj_file" default="$(find ORB_SLAM2)/output/traj/realsense_mono_kf_traj.txt"/>
+
+    <!-- Launch the ORB-SLAM3 node -->
+    <node name="ORB_SLAM2" pkg="ORB_SLAM2" type="Mono" output="screen">
+        <!-- Define the topics for the node -->
+        <remap from="/cam0/image_raw" to="/camera/color/image_raw"/>
+        
+        <param name="voc_file" value="$(arg voc_file)"/>
+        <param name="settings_file" value="$(arg settings_file)"/>
+        <param name="kf_traj_file" value="$(arg kf_traj_file)"/>
+
+    </node>
+
+    <!-- Optionally, you can include other nodes or configurations here -->
+</launch>

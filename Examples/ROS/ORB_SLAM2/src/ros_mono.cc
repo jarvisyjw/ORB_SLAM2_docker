@@ -47,16 +47,18 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "Mono");
     ros::start();
+    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+    ros::NodeHandle private_nh("~");
 
-    if(argc != 3)
-    {
-        cerr << endl << "Usage: rosrun ORB_SLAM2 Mono path_to_vocabulary path_to_settings" << endl;        
-        ros::shutdown();
-        return 1;
-    }
+    std::string voc_file, settings_file, kf_traj_file;
+
+    private_nh.param<std::string>("voc_file", voc_file, "./Vocabulary/ORBvoc.txt");
+    private_nh.param<std::string>("settings_file", settings_file, "./Examples/ROS/ORB_SLAM2/realsense.yaml");
+    private_nh.param<std::string>("kf_traj_file", kf_traj_file, "./KeyFrameTrajectory.txt");
+
+    ORB_SLAM2::System SLAM(voc_file, settings_file, ORB_SLAM2::System::MONOCULAR, true);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
 
     ImageGrabber igb(&SLAM);
 
@@ -69,7 +71,7 @@ int main(int argc, char **argv)
     SLAM.Shutdown();
 
     // Save camera trajectory
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM(kf_traj_file);
 
     ros::shutdown();
 
