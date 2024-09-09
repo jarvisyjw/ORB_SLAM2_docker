@@ -57,6 +57,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
        exit(-1);
     }
 
+    mySettingFile = strSettingsFile;
 
     //Load ORB Vocabulary
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
@@ -469,6 +470,14 @@ void System::SaveTrajectoryKITTI(const string &filename)
     }
     f.close();
     cout << endl << "trajectory saved!" << endl;
+}
+
+void System::LoadMap(const string &filename)
+{
+     SystemSetting* mySystemSetting = new SystemSetting(mpVocabulary);
+     
+     mySystemSetting->LoadSystemSetting(mySettingFile);
+     mpMap->Load(filename,mySystemSetting);
 }
 
 void System::SaveMap(const string &filename)

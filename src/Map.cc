@@ -202,6 +202,111 @@ long unsigned int Map::GetMaxKFid()
     return mnMaxKFid;
 }
 
+MapPoint* Map::LoadMapPoint( ifstream &f )
+{
+        // Position and Orientation of the MapPoints.
+        cv::Mat Position(3,1,CV_32F);
+        long unsigned int id;
+        f.read((char*)&id, sizeof(id));
+
+        f.read((char*)&Position.at<float>(0), sizeof(float));
+        f.read((char*)&Position.at<float>(1), sizeof(float));
+        f.read((char*)&Position.at<float>(2), sizeof(float));
+
+        // Initialize a MapPoint, and set its id and Position.
+        MapPoint* mp = new MapPoint(Position, this );
+        mp->mnId = id;
+        mp->SetWorldPos( Position );
+
+        return mp;
+}
+
+KeyFrame* Map::LoadKeyFrame( ifstream &f, SystemSetting* mySystemSetting )
+{
+    InitKeyFrame initkf(*mySystemSetting);
+
+    // Read ID and TimeStamp of each KeyFrame.
+    f.read((char*)&initkf.nId, sizeof(initkf.nId));
+    f.read((char*)&initkf.TimeStamp, sizeof(double));
+
+    // Read position and quaternion
+    cv::Mat T = cv::Mat::zeros(4,4,CV_32F);
+    std::vector<float> Quat(4);
+    //Quat.reserve(4);
+    for ( int i = 0; i < 4; i ++ )
+        f.read((char*)&Quat[i],sizeof(float));
+    cv::Mat R = Converter::toCvMat(Quat);
+    for ( int i = 0; i < 3; i ++ )
+        f.read((char*)&T.at<float>(i,3),sizeof(float));
+    for ( int i = 0; i < 3; i ++ )
+        for ( int j = 0; j < 3; j ++ )
+            T.at<float>(i,j) = R.at<float>(i,j);
+    T.at<float>(3,3) = 1;
+    
+    // Read feature point number of current Key Frame
+    f.read((char*)&initkf.N, sizeof(initkf.N));
+    initkf.vKps.reserve(initkf.N);
+    initkf.Descriptors.create(initkf.N, 32, CV_8UC1);
+    vector<float>KeypointDepth;
+
+    std::vector<MapPoint*> vpMapPoints;
+    vpMapPoints = vector<MapPoint*>(initkf.N,static_cast<MapPoint*>(NULL));
+    // Read Keypoints and descriptors of current KeyFrame
+    std::vector<MapPoint*> vmp = GetAllMapPoints();
+    for(int i = 0; i < initkf.N; i ++ )
+    {
+        cv::KeyPoint kp;
+        f.read((char*)&kp.pt.x, sizeof(kp.pt.x));
+        f.read((char*)&kp.pt.y, sizeof(kp.pt.y));
+        f.read((char*)&kp.size, sizeof(kp.size));
+        f.read((char*)&kp.angle,sizeof(kp.angle));
+        f.read((char*)&kp.response, sizeof(kp.response));
+        f.read((char*)&kp.octave, sizeof(kp.octave));
+
+        initkf.vKps.push_back(kp);
+        
+        // Read descriptors of keypoints
+        f.read((char*)&initkf.Descriptors.cols, sizeof(initkf.Descriptors.cols));
+        // for ( int j = 0; j < 32; j ++ ) // Since initkf.Descriptors.cols is always 32, for loop may also write like this.
+        for ( int j = 0; j < initkf.Descriptors.cols; j ++ )
+            f.read((char*)&initkf.Descriptors.at<unsigned char>(i,j),sizeof(char));
+
+        // Read the mapping from keypoints to MapPoints.
+        unsigned long int mpidx;
+        f.read((char*)&mpidx, sizeof(mpidx));
+
+        // Look up from vmp, which contains all MapPoints, MapPoint of current KeyFrame, and then insert in vpMapPoints.
+        if( mpidx == ULONG_MAX )
+                vpMapPoints[i] = NULL;
+        else
+                vpMapPoints[i] = vmp[mpidx];
+    }
+
+  
+    initkf.vRight = vector<float>(initkf.N,-1);
+    initkf.vDepth = vector<float>(initkf.N,-1);
+    //initkf.vDepth = KeypointDepth;
+    initkf.UndistortKeyPoints();
+    initkf.AssignFeaturesToGrid();
+
+    // Use initkf to initialize a KeyFrame and set parameters
+    KeyFrame* kf = new KeyFrame( initkf, this, NULL, vpMapPoints );
+    kf->mnId = initkf.nId;
+    kf->SetPose(T);
+    kf->ComputeBoW();
+
+    for ( int i = 0; i < initkf.N; i ++ )
+    {
+        if ( vpMapPoints[i] )
+        {
+            vpMapPoints[i]->AddObservation(kf,i);
+            if( !vpMapPoints[i]->GetReferenceKeyFrame())
+                vpMapPoints[i]->SetReferenceKeyFrame(kf);
+        }
+    }
+    return kf;
+}
+
 void Map::Save ( const string& filename )
 {
     //Print the information of the saving map
@@ -262,6 +367,99 @@ void Map::Save ( const string& filename )
 
     f.close();
     cerr<<"Map.cc :: Map Saving Finished!"<<endl;
+}
+
+void Map::Load ( const string &filename, SystemSetting* mySystemSetting)
+{
+    cerr << "Map.cc :: Map reading from:"<<filename<<endl;
+    ifstream f;
+    f.open( filename.c_str() );
+
+    // Same as the sequence that we save the file, we first read the number of MapPoints.
+    unsigned long int nMapPoints;
+    f.read((char*)&nMapPoints, sizeof(nMapPoints));
+
+    // Then read MapPoints one after another, and add them into the map
+    cerr<<"Map.cc :: The number of MapPoints:"<<nMapPoints<<endl;
+    for ( unsigned int i = 0; i < nMapPoints; i ++ )
+    {
+        MapPoint* mp = LoadMapPoint(f);
+        AddMapPoint(mp);
+    }
+
+    // Get all MapPoints
+    std::vector<MapPoint*> vmp = GetAllMapPoints();
+
+    // Read the number of KeyFrames
+    unsigned long int nKeyFrames;
+    f.read((char*)&nKeyFrames, sizeof(nKeyFrames));
+    cerr<<"Map.cc :: The number of KeyFrames:"<<nKeyFrames<<endl;
+
+    // Then read KeyFrames one after another, and add them into the map
+    vector<KeyFrame*>kf_by_order;
+    for( unsigned int i = 0; i < nKeyFrames; i ++ )
+    {
+        KeyFrame* kf = LoadKeyFrame(f, mySystemSetting);
+        AddKeyFrame(kf);
+        kf_by_order.push_back(kf);
+        
+    }
+
+   
+
+    cerr<<"Map.cc :: Max KeyFrame ID is: " << mnMaxKFid << ", and I set mnId to this number" <<endl;
+    
+
+    cerr<<"Map.cc :: KeyFrame Load OVER!"<<endl;
+
+    // Read Spanning Tree(open loop trajectory)
+    map<unsigned long int, KeyFrame*> kf_by_id;
+    for ( auto kf: mspKeyFrames )
+        kf_by_id[kf->mnId] = kf;
+    cerr<<"Map.cc :: Start Load The Parent!"<<endl;
+    for( auto kf: kf_by_order )
+    {
+        // Read parent_id of current KeyFrame.
+        unsigned long int parent_id;
+        f.read((char*)&parent_id, sizeof(parent_id));
+
+        // Add parent KeyFrame to current KeyFrame.
+        // cout<<"Map::Load : Add parent KeyFrame to current KeyFrame"<<endl;
+        if ( parent_id != ULONG_MAX )
+            kf->ChangeParent(kf_by_id[parent_id]);
+
+        // Read covisibility graphs.
+        // Read the number of Connected KeyFrames of current KeyFrame.
+        unsigned long int nb_con;
+        f.read((char*)&nb_con, sizeof(nb_con));
+        // Read id and weight of Connected KeyFrames of current KeyFrame, 
+        // and add Connected KeyFrames into covisibility graph.
+        // cout<<"Map::Load : Read id and weight of Connected KeyFrames"<<endl;
+        for ( unsigned long int i = 0; i < nb_con; i ++ )
+        {
+            unsigned long int id;
+            int weight;
+            f.read((char*)&id, sizeof(id));
+            f.read((char*)&weight, sizeof(weight));
+            kf->AddConnection(kf_by_id[id],weight);
+        }
+   }
+   cerr<<"Map.cc :: Parent Load OVER!"<<endl;
+   for ( auto mp: vmp )
+   {
+       // cout << "Now mp = "<< mp << endl;
+       if(mp)
+       {
+            // cout << "compute for mp = "<< mp << endl;
+            mp->ComputeDistinctiveDescriptors();
+            // cout << "Computed Distinctive Descriptors." << endl;
+            mp->UpdateNormalAndDepth();
+            // cout << "Updated Normal And Depth." << endl;
+        }
+   }
+    f.close();
+    cerr<<"Map.cc :: Load IS OVER!"<<endl;
+    return;
 }
 
 void Map::clear()
