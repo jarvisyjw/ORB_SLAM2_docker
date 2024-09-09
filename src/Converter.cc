@@ -46,6 +46,19 @@ g2o::SE3Quat Converter::toSE3Quat(const cv::Mat &cvT)
     return g2o::SE3Quat(R,t);
 }
 
+cv::Mat Converter::toCvMat(const std::vector<float>& v)
+{
+    Eigen::Quaterniond q;
+    q.x() = v[0];
+    q.y() = v[1];
+    q.z() = v[2];
+    q.w() = v[3];
+
+    Eigen::Matrix<double,3,3> eigMat(q);
+    cv::Mat M = toCvMat(eigMat);
+    return M;
+}
+
 cv::Mat Converter::toCvMat(const g2o::SE3Quat &SE3)
 {
     Eigen::Matrix<double,4,4> eigMat = SE3.to_homogeneous_matrix();
