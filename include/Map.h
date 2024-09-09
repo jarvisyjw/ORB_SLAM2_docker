@@ -23,6 +23,7 @@
 
 #include "MapPoint.h"
 #include "KeyFrame.h"
+#include "Converter.h"
 #include <set>
 
 #include <mutex>
@@ -40,6 +41,7 @@ class Map
 public:
     Map();
 
+    void Save(const string &filename);
     void AddKeyFrame(KeyFrame* pKF);
     void AddMapPoint(MapPoint* pMP);
     void EraseMapPoint(MapPoint* pMP);
@@ -67,6 +69,12 @@ public:
     std::mutex mMutexPointCreation;
 
 protected:
+
+    void SaveMapPoint(ofstream &f,MapPoint* mp);
+    void SaveKeyFrame(ofstream &f,KeyFrame* kf);
+	std::map<MapPoint*, unsigned long int> mmpnMapPointsIdx;
+    void GetMapPointsIdx(); 
+
     std::set<MapPoint*> mspMapPoints;
     std::set<KeyFrame*> mspKeyFrames;
 
