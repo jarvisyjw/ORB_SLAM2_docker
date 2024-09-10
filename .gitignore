@@ -1,6 +1,8 @@
 CMakeLists.txt.user
 Examples/Monocular/mono_euroc
 Examples/Monocular/*.bin
+Examples/Monocular/*.txt
+Examples/Monocular/mono_load
 Examples/Monocular/mono_kitti
 Examples/Monocular/mono_tum
 Examples/RGB-D/rgbd_tum
