@@ -53,8 +53,9 @@ int main(int argc, char **argv)
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
 
     SLAM.LoadMap("map.txt");
-    std::cout << "Press Enter to continue..." << std::endl;
+    std::cout << "Press Enter to close..." << std::endl;
     std::cin.get();  // Waits for Enter to be pressed
+    SLAM.Shutdown();
     // SLAM.ActivateLocalizationMode();
 
     // Vector for tracking time statistics
