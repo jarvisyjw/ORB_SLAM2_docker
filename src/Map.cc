@@ -203,7 +203,7 @@ long unsigned int Map::GetMaxKFid()
 }
 
 MapPoint* Map::LoadMapPoint( ifstream &f )
-{
+{   
         // Position and Orientation of the MapPoints.
         cv::Mat Position(3,1,CV_32F);
         long unsigned int id;
@@ -369,7 +369,7 @@ void Map::Save ( const string& filename )
     cerr<<"Map.cc :: Map Saving Finished!"<<endl;
 }
 
-void Map::Load ( const string &filename, SystemSetting* mySystemSetting)
+void Map::Load( const string &filename, SystemSetting* mySystemSetting)
 {
     cerr << "Map.cc :: Map reading from:"<<filename<<endl;
     ifstream f;

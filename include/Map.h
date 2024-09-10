@@ -25,7 +25,7 @@
 #include "KeyFrame.h"
 #include "Converter.h"
 #include <set>
-
+#include "SystemSetting.h"
 #include <mutex>
 
 
@@ -35,6 +35,7 @@ namespace ORB_SLAM2
 
 class MapPoint;
 class KeyFrame;
+class SystemSetting;
 
 class Map
 {
@@ -42,6 +43,13 @@ public:
     Map();
 
     void Save(const string &filename);
+    // void Load(const string &filename);
+
+
+    void Load(const string &filename,SystemSetting* mySystemSetting);
+    // MapPoint* LoadMapPoint(ifstream &f);
+    // KeyFrame* LoadKeyFrame(ifstream &f,SystemSetting* mySystemSetting);
+
     void AddKeyFrame(KeyFrame* pKF);
     void AddMapPoint(MapPoint* pMP);
     void EraseMapPoint(MapPoint* pMP);
@@ -74,6 +82,9 @@ protected:
     void SaveKeyFrame(ofstream &f,KeyFrame* kf);
 	std::map<MapPoint*, unsigned long int> mmpnMapPointsIdx;
     void GetMapPointsIdx(); 
+
+    MapPoint* LoadMapPoint( ifstream &f );
+    KeyFrame* LoadKeyFrame( ifstream &f, SystemSetting* mySystemSetting );
 
     std::set<MapPoint*> mspMapPoints;
     std::set<KeyFrame*> mspKeyFrames;
