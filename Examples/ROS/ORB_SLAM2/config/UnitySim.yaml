@@ -55,4 +55,5 @@ Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
 
-System.LoopClosing: 0
+System.LoopClosing: 1
+# System.Map: "Map.bin"

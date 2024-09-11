@@ -27,4 +27,6 @@ lib/
 datasets/
 dataset/
 .vscode/
+output/
+.idea/
 

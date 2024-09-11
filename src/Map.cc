@@ -424,7 +424,7 @@ void Map::Load( const string &filename, SystemSetting* mySystemSetting)
         f.read((char*)&parent_id, sizeof(parent_id));
 
         // Add parent KeyFrame to current KeyFrame.
-        // cout<<"Map::Load : Add parent KeyFrame to current KeyFrame"<<endl;
+        cout<<"Map::Load : Add parent KeyFrame to current KeyFrame"<<endl;
         if ( parent_id != ULONG_MAX )
             kf->ChangeParent(kf_by_id[parent_id]);
 
@@ -432,9 +432,12 @@ void Map::Load( const string &filename, SystemSetting* mySystemSetting)
         // Read the number of Connected KeyFrames of current KeyFrame.
         unsigned long int nb_con;
         f.read((char*)&nb_con, sizeof(nb_con));
+
         // Read id and weight of Connected KeyFrames of current KeyFrame, 
         // and add Connected KeyFrames into covisibility graph.
-        // cout<<"Map::Load : Read id and weight of Connected KeyFrames"<<endl;
+        cout<<"Map::Load : Read id and weight of Connected KeyFrames"<<endl;
+        cout << nb_con << endl;
+        
         for ( unsigned long int i = 0; i < nb_con; i ++ )
         {
             unsigned long int id;
