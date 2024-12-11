@@ -247,4 +247,20 @@ docker run -it --privileged -v /dev/bus/usb:/dev/bus/usb --rm -e DISPLAY=$DISPLA
 ```bash
 cd ORB_SLAM2
 docker run -it --rm -e DISPLAY=$DISPLAY -v $(pwd):/ORB_SLAM2 -v /tmp/.X11-unix:/tmp/.X11-unix --network host 11710414/orbslam2:ros-v0.1
+
+./build.sh
+./build_ros.sh
+```
+
+# 11. Customization
+
+## Enabling pure VO
+```yaml
+# In config file
+System.LoopClosing: 0
+```
+
+## Viewing Map
+```yaml
+System.Map: "Map.bin"
 ```
