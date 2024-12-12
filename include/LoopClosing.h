@@ -51,7 +51,7 @@ public:
         Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3> > > KeyFrameAndPose;
 public:
 
-    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
+    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale, const bool bCorrectLoop);
 
     void SetTracker(Tracking* pTracker);
 
@@ -133,9 +133,10 @@ protected:
     std::vector<KeyFrame*> mvpCurrentConnectedKFs;
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
     std::vector<MapPoint*> mvpLoopMapPoints;
-    // Saved loops
-    std::vector<KeyFrame*> mvpLoopQuery;
-    std::vector<::vector<KeyFrame*>> mvpLoopCandidates;
+    // CorrectLoop
+    bool mbCorrectLoop;
+    // std::vector<KeyFrame*> mvpLoopQuery;
+    // std::vector<::vector<KeyFrame*>> mvpLoopCandidates;
 
     cv::Mat mScw;
     g2o::Sim3 mg2oScw;

@@ -99,14 +99,16 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     if(bLoopClosing)
     {
         cout << "Enable Loop Closing" << endl;
-        mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
+        mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR, bLoopClosing);
         mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
     }
     else
     {
-        cout << "Disable Loop Closing" << endl;
-        mpLoopCloser = nullptr;
-        mptLoopClosing = nullptr;
+        cout << "Detect Loop Only, not Optimize" << endl;
+        // mpLoopCloser = nullptr;
+        // mptLoopClosing = nullptr;
+        mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR, bLoopClosing);
+        mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
     }
 
     
@@ -126,12 +128,12 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLocalMapper->SetTracker(mpTracker);
     mpLocalMapper->SetLoopCloser(mpLoopCloser);
     
-    if(mpLoopCloser){
-        mpLoopCloser->SetTracker(mpTracker);
-        mpLoopCloser->SetLocalMapper(mpLocalMapper);
-    }
-    // mpLoopCloser->SetTracker(mpTracker);
-    // mpLoopCloser->SetLocalMapper(mpLocalMapper);
+    // if(mpLoopCloser){
+    //     mpLoopCloser->SetTracker(mpTracker);
+    //     mpLoopCloser->SetLocalMapper(mpLocalMapper);
+    // }
+    mpLoopCloser->SetTracker(mpTracker);
+    mpLoopCloser->SetLocalMapper(mpLocalMapper);
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)

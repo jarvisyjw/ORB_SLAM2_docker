@@ -4,7 +4,7 @@
     <arg name="settings_file" default="$(find ORB_SLAM2)/config/UnitySim.yaml"/>
     <arg name="kf_traj_file" default="/ORB_SLAM2/output/traj/unitysim_00_traj.txt"/>
     <arg name="map_file" default="/ORB_SLAM2/output/map/unitysim_00_map.bin"/>             
-    <arg name="bag_file" default="/ORB_SLAM2/datasets/UnitySimulation_00.bag" />
+    <arg name="bag_file" default="/ORB_SLAM2/dataset/UnitySimulation_00.bag" />
 
 
     <node pkg="rosbag" type="play" name="player" output="screen" args="--pause $(arg bag_file)"/>
