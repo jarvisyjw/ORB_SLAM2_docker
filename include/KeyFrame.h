@@ -220,6 +220,7 @@ protected:
     bool mbFirstConnection;
     KeyFrame* mpParent;
     std::set<KeyFrame*> mspChildrens;
+    // Detected Loop Edges
     std::set<KeyFrame*> mspLoopEdges;
 
     // Bad flags

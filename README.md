@@ -93,7 +93,6 @@ chmod +x build.sh
 This will create **libORB_SLAM2.so**  at *lib* folder and the executables **mono_tum**, **mono_kitti**, **rgbd_tum**, **stereo_kitti**, **mono_euroc** and **stereo_euroc** in *Examples* folder.
 
 # 4. Monocular Examples
-
 ## TUM Dataset
 
 1. Download a sequence from http://vision.in.tum.de/data/datasets/rgbd-dataset/download and uncompress it.
@@ -261,6 +260,7 @@ System.LoopClosing: 0
 ```
 
 ## Viewing Map
-```yaml
-System.Map: "Map.bin"
-```
+- Usage
+  ```bash
+  ./mono_load path_to_vocabulary path_to_settings path_to_map
+  ```

@@ -54,7 +54,7 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
 }
 
 
-void LoopClosing::Run()
+void 
 {
     mbFinished =false;
 
@@ -66,6 +66,10 @@ void LoopClosing::Run()
             // Detect loop candidates and check covisibility consistency
             if(DetectLoop())
             {
+            // Add a bool here to only detect but not optimize
+            // Save detected loop
+
+
                // Compute similarity transformation [sR|t]
                // In the stereo/RGBD case s=1
                if(ComputeSim3())
@@ -220,7 +224,9 @@ bool LoopClosing::DetectLoop()
         return false;
     }
     else
-    {
+    {   
+        // Save Loop
+        // SaveLoop(mvpEnoughConsistentCandidates);
         return true;
     }
 
@@ -231,7 +237,6 @@ bool LoopClosing::DetectLoop()
 bool LoopClosing::ComputeSim3()
 {
     // For each consistent loop candidate we try to compute a Sim3
-
     const int nInitialCandidates = mvpEnoughConsistentCandidates.size();
 
     // We compute first ORB matches for each candidate
@@ -249,6 +254,7 @@ bool LoopClosing::ComputeSim3()
 
     int nCandidates=0; //candidates with enough matches
 
+    // for each loop candidate, compute the sim3 (R|t,s=scale)
     for(int i=0; i<nInitialCandidates; i++)
     {
         KeyFrame* pKF = mvpEnoughConsistentCandidates[i];
@@ -262,6 +268,7 @@ bool LoopClosing::ComputeSim3()
             continue;
         }
 
+        // 2D-3D matches
         int nmatches = matcher.SearchByBoW(mpCurrentKF,pKF,vvpMapPointMatches[i]);
 
         if(nmatches<20)
@@ -396,6 +403,16 @@ bool LoopClosing::ComputeSim3()
         mpCurrentKF->SetErase();
         return false;
     }
+
+}
+
+// Add save loop
+void LoopClosing::SaveLoop(){
+    
+    cout << "Save Loop" << endl;
+
+
+
 
 }
 

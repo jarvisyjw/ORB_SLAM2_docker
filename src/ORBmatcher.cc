@@ -520,8 +520,10 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
 }
 
 int ORBmatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches12)
-{
+{   
+    // keypoints
     const vector<cv::KeyPoint> &vKeysUn1 = pKF1->mvKeysUn;
+    // bowFeat
     const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
     const vector<MapPoint*> vpMapPoints1 = pKF1->GetMapPointMatches();
     const cv::Mat &Descriptors1 = pKF1->mDescriptors;

@@ -94,6 +94,8 @@ protected:
 
     void CorrectLoop();
 
+    void SaveLoop();
+
     void ResetIfRequested();
     bool mbResetRequested;
     std::mutex mMutexReset;
@@ -123,10 +125,18 @@ protected:
     KeyFrame* mpCurrentKF;
     KeyFrame* mpMatchedKF;
     std::vector<ConsistentGroup> mvConsistentGroups;
+    // mvpEnoughConsistentCandidates -> Detected loops
+    // This is a temporal holder for each time detectloop is perfromed.
+    // If you want to save the detected loops, we need to create another holder
+    // to save this vector
     std::vector<KeyFrame*> mvpEnoughConsistentCandidates;
     std::vector<KeyFrame*> mvpCurrentConnectedKFs;
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
     std::vector<MapPoint*> mvpLoopMapPoints;
+    // Saved loops
+    std::vector<KeyFrame*> mvpLoopQuery;
+    std::vector<::vector<KeyFrame*>> mvpLoopCandidates;
+
     cv::Mat mScw;
     g2o::Sim3 mg2oScw;
 
