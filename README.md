@@ -243,14 +243,30 @@ This mode can be used when you have a good map of your working area. In this mod
 <!-- ```bash
 docker run -it --privileged -v /dev/bus/usb:/dev/bus/usb --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v $(pwd):/ORB_SLAM2 11710414/orbslam2:ros-v0.1
 ``` -->
+- Machine with nvidia gpu support
+Use docker image `lmwafer/orb-slam2-ready:1.2-ubuntu18.04`
+
+```bash
+sudo xhost +local:root && docker run --privileged --name orb-2-container -p 8086:8086 -e DISPLAY=$DISPLAY -e QT_X11_NO_MITSHM=1 -v /tmp/.X11-unix:/tmp/.X11-unix -v /dev:/dev:ro -v $(pwd):/ORB_SLAM2 --gpus all -it lmwafer/orb-slam2-ready:1.2-ubuntu18.04
+```
+
+```bash
+# demo run
+
+./Examples/Monocular/mono_tum Vocabulary/ORBvoc.txt Examples/Monocular/TUM3.yaml /ORB_SLAM2/dataset/rgbd_dataset_freiburg3_teddy
+```
+
+- Machine with intel igpu support
+Use docker image `11710414/orbslam2:ros-v0.1`
 
 ```bash
 cd ORB_SLAM2
 docker run -it --rm -e DISPLAY=$DISPLAY -v $(pwd):/ORB_SLAM2 -v /tmp/.X11-unix:/tmp/.X11-unix --network host 11710414/orbslam2:ros-v0.1
-
+# in the container
 ./build.sh
 ./build_ros.sh
 ```
+
 
 # 11. Customization
 
