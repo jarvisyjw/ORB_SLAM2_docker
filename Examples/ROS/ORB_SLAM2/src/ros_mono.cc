@@ -50,12 +50,13 @@ int main(int argc, char **argv)
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
     ros::NodeHandle private_nh("~");
 
-    std::string voc_file, settings_file, kf_traj_file, map_file;
+    std::string voc_file, settings_file, kf_traj_file, map_file, loop_file;
 
     private_nh.param<std::string>("voc_file", voc_file, "./Vocabulary/ORBvoc.txt");
     private_nh.param<std::string>("settings_file", settings_file, "./Examples/ROS/ORB_SLAM2/realsense.yaml");
     private_nh.param<std::string>("kf_traj_file", kf_traj_file, "./KeyFrameTrajectory.txt");
     private_nh.param<std::string>("map_file", map_file, "./Map.bin");
+    private_nh.param<std::string>("loop_file", loop_file, "./loop.txt");
 
     ORB_SLAM2::System SLAM(voc_file, settings_file, ORB_SLAM2::System::MONOCULAR, true);
 
@@ -74,9 +75,13 @@ int main(int argc, char **argv)
     // Save camera trajectory
     SLAM.SaveKeyFrameTrajectoryTUM(kf_traj_file);
 
+    // Save loop closure edges
+    SLAM.SaveLoopClosureEdges(loop_file);
+
     // Save map
     SLAM.SaveMap(map_file);
 
+    // ros::Duration(5.0).sleep();
     ros::shutdown();
 
     return 0;

@@ -405,6 +405,41 @@ void System::SaveTrajectoryTUM(const string &filename)
     cout << endl << "trajectory saved!" << endl;
 }
 
+void System::SaveLoopClosureEdges(const string &filename)
+{
+    cout << endl << "Saving loop closure edges to " << filename << " ..." << endl;
+
+    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    for(size_t i=0; i<vpKFs.size(); i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+
+       // pKF->SetPose(pKF->GetPose()*Two);
+
+        if(pKF->isBad())
+            continue;
+
+        // if(pKF->GetLoopEdges().empty())
+        //     continue;
+
+        set<KeyFrame*> sLoopKFs = pKF->GetLoopEdges();
+        for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
+        {   
+            KeyFrame* pKFi = *sit;
+            f << setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << " " << pKFi->mTimeStamp << " " << pKFi->mnId << endl;
+        }
+    }
+
+    f.close();
+    cout << endl << "loops saved!" << endl;
+
+}
 
 void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 {

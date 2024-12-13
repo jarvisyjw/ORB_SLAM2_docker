@@ -409,6 +409,10 @@ bool LoopClosing::ComputeSim3()
         // What's the difference between nTotalMatches >= 40
         cout << "Current KF ID: " << mpCurrentKF->mnId << endl;
         cout << "Matched KF ID: " << mpMatchedKF->mnId << endl;
+        
+        mpMatchedKF->AddLoopEdge(mpCurrentKF);
+        mpCurrentKF->AddLoopEdge(mpMatchedKF);
+
         for(int i=0; i<nInitialCandidates; i++)
             if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
                 mvpEnoughConsistentCandidates[i]->SetErase();
@@ -467,7 +471,9 @@ void LoopClosing::CorrectLoop()
     mvpCurrentConnectedKFs.push_back(mpCurrentKF);
 
     KeyFrameAndPose CorrectedSim3, NonCorrectedSim3;
+    // CorrectedSim3 -> Corrected Sim3 pose
     CorrectedSim3[mpCurrentKF]=mg2oScw;
+    // Twc -> Current keyframe pose
     cv::Mat Twc = mpCurrentKF->GetPoseInverse();
 
 

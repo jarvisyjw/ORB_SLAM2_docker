@@ -139,6 +139,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             // Covisibility Graph
             const vector<KeyFrame*> vCovKFs = vpKFs[i]->GetCovisiblesByWeight(100);
             cv::Mat Ow = vpKFs[i]->GetCameraCenter();
+            glColor4f(0.0f,1.0f,0.0f,0.6f); // Green color for covisible key-frames
             if(!vCovKFs.empty())
             {
                 for(vector<KeyFrame*>::const_iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++)
@@ -162,6 +163,9 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
 
             // Loops
             set<KeyFrame*> sLoopKFs = vpKFs[i]->GetLoopEdges();
+            // if sLoopKFs.empty()
+            //     continue;
+            glColor4f(0.0f,0.0f,1.0f,0.6f);  // Blue color for loop closure edges
             for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
             {
                 if((*sit)->mnId<vpKFs[i]->mnId)
