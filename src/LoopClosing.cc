@@ -409,9 +409,9 @@ bool LoopClosing::ComputeSim3()
         // What's the difference between nTotalMatches >= 40
         cout << "Current KF ID: " << mpCurrentKF->mnId << endl;
         cout << "Matched KF ID: " << mpMatchedKF->mnId << endl;
-        
-        mpMatchedKF->AddLoopEdge(mpCurrentKF);
-        mpCurrentKF->AddLoopEdge(mpMatchedKF);
+
+        mpMatchedKF->AddLoopEdge(mpCurrentKF, nTotalMatches);
+        mpCurrentKF->AddLoopEdge(mpMatchedKF, nTotalMatches);
 
         for(int i=0; i<nInitialCandidates; i++)
             if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
@@ -606,8 +606,8 @@ void LoopClosing::CorrectLoop()
     mpMap->InformNewBigChange();
 
     // Add loop edge
-    mpMatchedKF->AddLoopEdge(mpCurrentKF);
-    mpCurrentKF->AddLoopEdge(mpMatchedKF);
+    mpMatchedKF->AddLoopEdge(mpCurrentKF, 0);
+    mpCurrentKF->AddLoopEdge(mpMatchedKF, 0);
 
     // Launch a new thread to perform Global Bundle Adjustment
     mbRunningGBA = true;

@@ -428,12 +428,32 @@ void System::SaveLoopClosureEdges(const string &filename)
         // if(pKF->GetLoopEdges().empty())
         //     continue;
 
-        set<KeyFrame*> sLoopKFs = pKF->GetLoopEdges();
-        for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
-        {   
-            KeyFrame* pKFi = *sit;
-            f << setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << " " << pKFi->mTimeStamp << " " << pKFi->mnId << endl;
+        std::pair<set<KeyFrame*>, set<int>> LoopEdges = pKF->GetLoopEdges();
+        set<KeyFrame*> sLoopKFs = LoopEdges.first;
+        set<int> sLoopMatches = LoopEdges.second;
+
+        // Check if both sets have the same size
+        if (sLoopKFs.size() != sLoopMatches.size()) {
+            std::cerr << "Warning: The sets do not match in size and may not correspond!" << endl;
         }
+
+        // Iterator for each set
+        std::set<KeyFrame*>::iterator itKFs = sLoopKFs.begin();
+        std::set<int>::iterator itIDs = sLoopMatches.begin();
+
+        // Assuming ofstream f is already open
+        for (; itKFs != sLoopKFs.end() && itIDs != sLoopMatches.end(); ++itKFs, ++itIDs)
+        {
+            KeyFrame* pKFi = *itKFs;
+            int id = *itIDs;
+            f << std::setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << " " << pKFi->mTimeStamp << " " << pKFi->mnId << " " << id << endl;
+        }
+
+        // for(map<set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
+        // {   
+        //     KeyFrame* pKFi = *sit;
+        //     f << setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << " " << pKFi->mTimeStamp << " " << pKFi->mnId << endl;
+        // }
     }
 
     f.close();
