@@ -434,17 +434,19 @@ bool KeyFrame::hasChild(KeyFrame *pKF)
     return mspChildrens.count(pKF);
 }
 
-void KeyFrame::AddLoopEdge(KeyFrame *pKF)
+void KeyFrame::AddLoopEdge(KeyFrame *pKF, const int nTotalMatches, const cv::Mat &mScm)
 {
     unique_lock<mutex> lockCon(mMutexConnections);
     mbNotErase = true;
     mspLoopEdges.insert(pKF);
+    msnLoopEdges.insert(nTotalMatches);
+    msmLoopScm.push_back(mScm.clone());
 }
 
-set<KeyFrame*> KeyFrame::GetLoopEdges()
+std::tuple<set<KeyFrame*>, set<int>, vector<cv::Mat>> KeyFrame::GetLoopEdges()
 {
     unique_lock<mutex> lockCon(mMutexConnections);
-    return mspLoopEdges;
+    return make_tuple(mspLoopEdges, msnLoopEdges, msmLoopScm);
 }
 
 void KeyFrame::SetNotErase()

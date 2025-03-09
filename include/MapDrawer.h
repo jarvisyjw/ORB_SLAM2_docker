@@ -26,6 +26,7 @@
 #include"KeyFrame.h"
 #include<pangolin/pangolin.h>
 
+#include<opencv2/core/core.hpp>
 #include<mutex>
 
 namespace ORB_SLAM2

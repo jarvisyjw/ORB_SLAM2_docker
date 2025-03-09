@@ -90,6 +90,8 @@ protected:
 
     bool ComputeSim3();
 
+    bool ComputeTrajSim();
+
     void SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap);
 
     void CorrectLoop();
@@ -139,6 +141,7 @@ protected:
     // std::vector<::vector<KeyFrame*>> mvpLoopCandidates;
 
     cv::Mat mScw;
+    cv::Mat mScm;
     g2o::Sim3 mg2oScw;
 
     long unsigned int mLastLoopKFid;

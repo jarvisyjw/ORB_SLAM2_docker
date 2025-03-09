@@ -31,6 +31,7 @@
 #include "InitKeyFrame.h"
 
 #include <mutex>
+#include <tuple>
 
 
 namespace ORB_SLAM2
@@ -80,8 +81,8 @@ public:
     bool hasChild(KeyFrame* pKF);
 
     // Loop Edges
-    void AddLoopEdge(KeyFrame* pKF, const int nTotalMatches);
-    std::pair<set<KeyFrame*>, set<int>> GetLoopEdges();
+    void AddLoopEdge(KeyFrame *pKF, const int nTotalMatches, const cv::Mat &mScm);
+    std::tuple<set<KeyFrame*>, set<int>, vector<cv::Mat>> GetLoopEdges();
 
     // MapPoint observation functions
     void AddMapPoint(MapPoint* pMP, const size_t &idx);
@@ -222,6 +223,7 @@ protected:
     std::set<KeyFrame*> mspChildrens;
     // Detected Loop Edges
     std::set<KeyFrame*> mspLoopEdges;
+    std::vector< cv::Mat > msmLoopScm;
     std::set<int> msnLoopEdges;
 
     // Bad flags

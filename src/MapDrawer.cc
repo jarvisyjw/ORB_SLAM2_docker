@@ -162,8 +162,9 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             }
 
             // Loops
-            std::pair<set<KeyFrame*>, set<int>> LoopEdges = vpKFs[i]->GetLoopEdges();
-            set<KeyFrame*> sLoopKFs = LoopEdges.first;
+            std::tuple<set<KeyFrame*>, set<int>, vector<cv::Mat>> LoopEdges = vpKFs[i]->GetLoopEdges();
+            // set<KeyFrame*> sLoopKFs = LoopEdges.first;
+            set<KeyFrame*> sLoopKFs = std::get<0>(LoopEdges);
             // set<KeyFrame*> sLoopKFs = vpKFs[i]->GetLoopEdges();
             // if sLoopKFs.empty()
             //     continue;

@@ -428,9 +428,10 @@ void System::SaveLoopClosureEdges(const string &filename)
         // if(pKF->GetLoopEdges().empty())
         //     continue;
 
-        std::pair<set<KeyFrame*>, set<int>> LoopEdges = pKF->GetLoopEdges();
-        set<KeyFrame*> sLoopKFs = LoopEdges.first;
-        set<int> sLoopMatches = LoopEdges.second;
+        std::tuple<set<KeyFrame*>, set<int>, vector<cv::Mat>> LoopEdges = pKF->GetLoopEdges();
+        set<KeyFrame*> sLoopKFs = std::get<0>(LoopEdges);
+        set<int> sLoopMatches = std::get<1>(LoopEdges);
+        vector<cv::Mat> vLoopTransform = std::get<2>(LoopEdges);
 
         // Check if both sets have the same size
         if (sLoopKFs.size() != sLoopMatches.size()) {
@@ -440,13 +441,21 @@ void System::SaveLoopClosureEdges(const string &filename)
         // Iterator for each set
         std::set<KeyFrame*>::iterator itKFs = sLoopKFs.begin();
         std::set<int>::iterator itIDs = sLoopMatches.begin();
+        std::vector<cv::Mat>::iterator itTransforms = vLoopTransform.begin();
 
         // Assuming ofstream f is already open
-        for (; itKFs != sLoopKFs.end() && itIDs != sLoopMatches.end(); ++itKFs, ++itIDs)
+        for (; itKFs != sLoopKFs.end() && itIDs != sLoopMatches.end() && itTransforms != vLoopTransform.end(); ++itKFs, ++itIDs, ++itTransforms)
         {
             KeyFrame* pKFi = *itKFs;
             int id = *itIDs;
-            f << std::setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << " " << pKFi->mTimeStamp << " " << pKFi->mnId << " " << id << endl;
+            cv::Mat T = *itTransforms;
+            f << std::setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << " " << pKFi->mTimeStamp << " " << pKFi->mnId << " " << id << " ";
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 4; ++j) {
+                f << T.at<float>(i, j) << " ";
+                }
+            }
+            f << endl;
         }
 
         // for(map<set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
@@ -484,11 +493,12 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 
         if(pKF->isBad())
             continue;
-
+       
+       // output format: timestamp Id tx ty tz qx qy qz qw
         cv::Mat R = pKF->GetRotation().t();
         vector<float> q = Converter::toQuaternion(R);
         cv::Mat t = pKF->GetCameraCenter();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
+        f << setprecision(6) << pKF->mTimeStamp << " " << pKF->mnId << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
           << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
 
     }

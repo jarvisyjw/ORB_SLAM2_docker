@@ -783,7 +783,24 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
                                        const LoopClosing::KeyFrameAndPose &CorrectedSim3,
                                        const map<KeyFrame *, set<KeyFrame *> > &LoopConnections, const bool &bFixScale)
 {
-    // Setup optimizer
+
+/*
+Input: 
+    pMap: The map containing all KeyFrames and MapPoints.
+    pLoopKF: The KeyFrame where a loop closure was detected.
+    pCurKF: The current KeyFrame at the time of loop closure.
+    NonCorrectedSim3: The original Sim3 transformations before correction.
+    CorrectedSim3: The corrected Sim3 transformations after loop closure.
+    LoopConnections: A map of KeyFrames and their loop-connected KeyFrames.
+    bFixScale: A flag indicating whether the scale should be fixed during optimization.
+
+Output:
+    Optimized KeyFrame Poses: The poses of all KeyFrames are updated to minimize the error in the Sim3 constraints.
+    Updated MapPoints: The positions of all MapPoints are corrected based on the optimized KeyFrame poses.
+ */
+
+
+    // Setup Sim3 optimizer
     g2o::SparseOptimizer optimizer;
     optimizer.setVerbose(false);
     g2o::BlockSolver_7_3::LinearSolverType * linearSolver =
@@ -794,14 +811,15 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     solver->setUserLambdaInit(1e-16);
     optimizer.setAlgorithm(solver);
 
+    // retrieve all KeyFrames and MapPoints
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
 
     const unsigned int nMaxKFid = pMap->GetMaxKFid();
 
     vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vScw(nMaxKFid+1); // poses of KFs
-    vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vCorrectedSwc(nMaxKFid+1);
-    vector<g2o::VertexSim3Expmap*> vpVertices(nMaxKFid+1);
+    vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vCorrectedSwc(nMaxKFid+1); // corrected poses of KFs
+    vector<g2o::VertexSim3Expmap*> vpVertices(nMaxKFid+1); // vertices of KFs
 
     const int minFeat = 100;
 
@@ -926,8 +944,9 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         }
 
         // Loop edges
-        std::pair<set<KeyFrame*>, set<int>> LoopEdges = pKF->GetLoopEdges();
-        set<KeyFrame*> sLoopEdges = LoopEdges.first;
+        std::tuple<set<KeyFrame*>, set<int>, vector<cv::Mat>> LoopEdges = pKF->GetLoopEdges();
+        // set<KeyFrame*> sLoopEdges = LoopEdges.first;
+        set<KeyFrame*> sLoopEdges = std::get<0>(LoopEdges);
         // const set<KeyFrame*> sLoopEdges = pKF->GetLoopEdges();
         for(set<KeyFrame*>::const_iterator sit=sLoopEdges.begin(), send=sLoopEdges.end(); sit!=send; sit++)
         {
@@ -1184,7 +1203,10 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
 
     // Optimize!
     optimizer.initializeOptimization();
+    // optimizer.save("test.g2o");
     optimizer.optimize(5);
+    // optimizer.save("test_after.g2o");
+    // cout << "Optimization finished" << "Output to test_after.g2o" << endl;
 
     // Check inliers
     int nBad=0;

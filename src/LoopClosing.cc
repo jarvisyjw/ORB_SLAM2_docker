@@ -288,9 +288,11 @@ bool LoopClosing::ComputeSim3()
             continue;
         }
         else
-        {
+        {   
+            // geometric verification init. with RANSAC
             Sim3Solver* pSolver = new Sim3Solver(mpCurrentKF,pKF,vvpMapPointMatches[i],mbFixScale);
             pSolver->SetRansacParameters(0.99,20,300);
+            // set the solver in the vector of solvers
             vpSim3Solvers[i] = pSolver;
         }
 
@@ -318,6 +320,7 @@ bool LoopClosing::ComputeSim3()
             bool bNoMore; // default false
 
             Sim3Solver* pSolver = vpSim3Solvers[i];
+            // Sim3 transformation from current KF to the matched KF
             cv::Mat Scm  = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
 
             // If Ransac reachs max. iterations discard keyframe
@@ -330,6 +333,7 @@ bool LoopClosing::ComputeSim3()
             // If RANSAC returns a Sim3, perform a guided matching and optimize with all correspondences
             if(!Scm.empty())
             {
+                
                 vector<MapPoint*> vpMapPointMatches(vvpMapPointMatches[i].size(), static_cast<MapPoint*>(NULL));
                 for(size_t j=0, jend=vbInliers.size(); j<jend; j++)
                 {
@@ -342,7 +346,10 @@ bool LoopClosing::ComputeSim3()
                 const float s = pSolver->GetEstimatedScale();
                 matcher.SearchBySim3(mpCurrentKF,pKF,vpMapPointMatches,s,R,t,7.5);
 
+                // gScm -> Sim3 transformation from current KF to the matched KF
                 g2o::Sim3 gScm(Converter::toMatrix3d(R),Converter::toVector3d(t),s);
+                mScm = Converter::toCvMat(gScm);
+                cout << "Sim3 Transformation: " << endl << mScm << endl;
                 const int nInliers = Optimizer::OptimizeSim3(mpCurrentKF, pKF, vpMapPointMatches, gScm, 10, mbFixScale);
 
                 // If optimization is succesful stop ransacs and continue
@@ -353,7 +360,6 @@ bool LoopClosing::ComputeSim3()
                     g2o::Sim3 gSmw(Converter::toMatrix3d(pKF->GetRotation()),Converter::toVector3d(pKF->GetTranslation()),1.0);
                     mg2oScw = gScm*gSmw;
                     mScw = Converter::toCvMat(mg2oScw);
-
                     mvpCurrentMatchedPoints = vpMapPointMatches;
                     break;
                 }
@@ -409,9 +415,11 @@ bool LoopClosing::ComputeSim3()
         // What's the difference between nTotalMatches >= 40
         cout << "Current KF ID: " << mpCurrentKF->mnId << endl;
         cout << "Matched KF ID: " << mpMatchedKF->mnId << endl;
+        cout << "Total Matches: " << nTotalMatches << endl;
+        cout << "Loop Transform from Matched KF to Current KF " << endl << mScm << endl;
 
-        mpMatchedKF->AddLoopEdge(mpCurrentKF, nTotalMatches);
-        mpCurrentKF->AddLoopEdge(mpMatchedKF, nTotalMatches);
+        mpMatchedKF->AddLoopEdge(mpCurrentKF, nTotalMatches, mScm);
+        mpCurrentKF->AddLoopEdge(mpMatchedKF, nTotalMatches, Converter::computeInverseSimTransform(mScm));
 
         for(int i=0; i<nInitialCandidates; i++)
             if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
@@ -428,6 +436,13 @@ bool LoopClosing::ComputeSim3()
 
 }
 
+bool LoopClosing::ComputeTrajSim()
+{
+    // For each detected loop candidate we try to compute a trajectory similarity between the original trajectory and the using the loop candidate optimized trajectory 
+    
+    
+
+}
 // // Add save loop
 // void LoopClosing::SaveLoop(){
     
@@ -470,6 +485,7 @@ void LoopClosing::CorrectLoop()
     mvpCurrentConnectedKFs = mpCurrentKF->GetVectorCovisibleKeyFrames();
     mvpCurrentConnectedKFs.push_back(mpCurrentKF);
 
+    // Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3> > >
     KeyFrameAndPose CorrectedSim3, NonCorrectedSim3;
     // CorrectedSim3 -> Corrected Sim3 pose
     CorrectedSim3[mpCurrentKF]=mg2oScw;
@@ -606,8 +622,8 @@ void LoopClosing::CorrectLoop()
     mpMap->InformNewBigChange();
 
     // Add loop edge
-    mpMatchedKF->AddLoopEdge(mpCurrentKF, 0);
-    mpCurrentKF->AddLoopEdge(mpMatchedKF, 0);
+    // mpMatchedKF->AddLoopEdge(mpCurrentKF, 0);
+    // mpCurrentKF->AddLoopEdge(mpMatchedKF, 0);
 
     // Launch a new thread to perform Global Bundle Adjustment
     mbRunningGBA = true;

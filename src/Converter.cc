@@ -93,6 +93,27 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
     return cvMat.clone();
 }
 
+cv::Mat Converter::computeInverseSimTransform(const cv::Mat &T) {
+    // Ensure T is a 4x4 matrix (3D similarity transform in homogeneous coordinates)
+    CV_Assert(T.rows == 4 && T.cols == 4);
+
+    // Extract scaling and rotation matrix (top-left 3x3 block)
+    cv::Mat R = T(cv::Range(0, 3), cv::Range(0, 3)); // Top-left 3x3 block
+    double scale = std::cbrt(cv::determinant(R));    // Scaling factor (det(R) = s^3)
+    cv::Mat R_inv = R.t() / scale;                  // Inverse rotation (R^T / s)
+
+    // Extract translation vector (top-right 3x1 block)
+    cv::Mat t = T(cv::Range(0, 3), cv::Range(3, 4)); // Top-right 3x1 block
+    cv::Mat t_inv = -R_inv * t;                      // Inverse translation
+
+    // Construct the inverse transformation matrix
+    cv::Mat T_inv = cv::Mat::eye(4, 4, T.type());    // Start with identity matrix
+    R_inv.copyTo(T_inv(cv::Range(0, 3), cv::Range(0, 3))); // Set top-left 3x3 block
+    t_inv.copyTo(T_inv(cv::Range(0, 3), cv::Range(3, 4))); // Set top-right 3x1 block
+
+    return T_inv;
+}
+
 cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
 {
     cv::Mat cvMat(3,1,CV_32F);
