@@ -53,6 +53,9 @@ public:
 
     static cv::Mat toCvMat( const std::vector<float>& v );
 
+    static cv::Mat computeInverseSimTransform(const cv::Mat &T);
+
+
 };
 
 }// namespace ORB_SLAM

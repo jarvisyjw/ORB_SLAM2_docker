@@ -1,19 +1,17 @@
 <launch>
     <!-- Specify the path to the ORB-SLAM2 vocabulary and configuration files -->
     <arg name="voc_file" default="/ORB_SLAM2/Vocabulary/ORBvoc.txt"/>
-    <arg name="settings_file" default="$(find ORB_SLAM2)/config/UnitySim.yaml"/>
-    <arg name="kf_traj_file" default="/ORB_SLAM2/ROS_output/traj/unitysim_00_traj_verify.txt"/>
-    <arg name="map_file" default="/ORB_SLAM2/ROS_output/map/unitysim_00_map_verify.bin"/>             
-    <arg name="loop_file" default="/ORB_SLAM2/ROS_output/loop/unitysim_00_loops_verify.txt"/>             
-    <arg name="bag_file" default="/ORB_SLAM2/dataset/UnitySimulation_00.bag" />
-
-
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--pause $(arg bag_file)"/>
+    <arg name="settings_file" default="$(find ORB_SLAM2)/config/cse.yaml"/>
+    <arg name="kf_traj_file" default="/ORB_SLAM2/ROS_output/traj/cse_warehouse_traj.txt"/>
+    <arg name="map_file" default="/ORB_SLAM2/ROS_output/map/cse_warehouse_map.bin"/>             
+    <arg name="loop_file" default="/ORB_SLAM2/ROS_output/loop/cse_warehouse_loops.txt"/>             
+    <arg name="bag_file" default="/ORB_SLAM2/dataset/output.bag" />
+    <node pkg="image_transport" name="image_transport" type="republish" args="compressed in:=/carter3/rgb_left raw out:=/carter3/rgb_left" output="screen"/>
 
     <!-- Launch the ORB-SLAM3 node -->
     <node name="ORB_SLAM2" pkg="ORB_SLAM2" type="Mono" output="screen">
         <!-- Define the topics for the node -->
-        <remap from="/cam0/image_raw" to="/camera/left/image_raw"/>
+        <remap from="/cam0/image_raw" to="/carter3/rgb_left"/>
         
         <param name="voc_file" value="$(arg voc_file)"/>
         <param name="settings_file" value="$(arg settings_file)"/>

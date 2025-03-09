@@ -5,15 +5,15 @@
 #--------------------------------------------------------------------------------------------
 
 # Camera calibration and distortion parameters (OpenCV) 
-Camera.fx: 535.4
-Camera.fy: 539.2
-Camera.cx: 320.1
-Camera.cy: 247.6
+Camera.fx: 616.625219502153
+Camera.fy: 616.2007856249934
+Camera.cx: 953.517490713636
+Camera.cy: 498.49245496387283
 
-Camera.k1: 0.0
-Camera.k2: 0.0
-Camera.p1: 0.0
-Camera.p2: 0.0
+Camera.k1: -0.009043984784710288
+Camera.k2: -0.00984168948459366
+Camera.p1: 0.00013640375398168132
+Camera.p2: -0.0010776804739845835
 
 # Camera frames per second 
 Camera.fps: 30.0
@@ -26,7 +26,7 @@ Camera.RGB: 1
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1000
+ORBextractor.nFeatures: 2000
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.2
@@ -43,7 +43,7 @@ ORBextractor.minThFAST: 7
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
-#--------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------
 Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1
 Viewer.GraphLineWidth: 0.9
@@ -55,7 +55,5 @@ Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
 
-# System Setting
-# System.Map: "map.bin"
-System.LoopClosing: 0
-
+System.LoopClosing: 1
+# System.Map: "Map.bin"

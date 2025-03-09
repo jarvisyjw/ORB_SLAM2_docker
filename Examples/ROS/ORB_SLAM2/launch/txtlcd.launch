@@ -1,0 +1,27 @@
+<launch>
+    <!-- Specify the path to the ORB-SLAM2 vocabulary and configuration files -->
+    <arg name="voc_file" default="/ORB_SLAM2/Vocabulary/ORBvoc.txt"/>
+    <arg name="settings_file" default="$(find ORB_SLAM2)/config/txtlcd.yaml"/>
+    <arg name="kf_traj_file" default="/ORB_SLAM2/ROS_output/traj/txtlcd_traj.txt"/>
+    <arg name="map_file" default="/ORB_SLAM2/ROS_output/map/txtlcd_map.bin"/>             
+    <arg name="loop_file" default="/ORB_SLAM2/ROS_output/loop/txtlcd_loops.txt"/>             
+    <arg name="bag_file" default="/ORB_SLAM2/dataset/output.bag" />
+    
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--pause -r 0.5 $(arg bag_file)"/>
+    <node pkg="image_transport" name="image_transport" type="republish" args="compressed in:=/usb_cam/image_raw raw out:=/usb_cam/image_raw" output="screen"/>
+
+    <!-- Launch the ORB-SLAM3 node -->
+    <node name="ORB_SLAM2" pkg="ORB_SLAM2" type="Mono" output="screen">
+        <!-- Define the topics for the node -->
+        <remap from="/cam0/image_raw" to="/usb_cam/image_raw/"/>
+        
+        <param name="voc_file" value="$(arg voc_file)"/>
+        <param name="settings_file" value="$(arg settings_file)"/>
+        <param name="kf_traj_file" value="$(arg kf_traj_file)"/>
+        <param name="loop_file" value="$(arg loop_file)"/>
+        <param name="map_file" value="$(arg map_file)"/>
+
+    </node>
+
+    <!-- Optionally, you can include other nodes or configurations here -->
+</launch>
