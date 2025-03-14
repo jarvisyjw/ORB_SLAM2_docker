@@ -131,6 +131,15 @@ public:
     std::vector<MapPoint*> GetTrackedMapPoints();
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
+    // ros utils
+    cv::Mat GetCurrentPosition();
+    cv::Mat DrawCurrentFrame ();
+    // std::vector<MapPoint*> GetTrackedMapPoints();
+    // std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
+    std::vector<MapPoint*> GetAllMapPoints();
+
+
+
 private:
 
     // Input sensor
@@ -183,6 +192,10 @@ private:
     std::vector<MapPoint*> mTrackedMapPoints;
     std::vector<cv::KeyPoint> mTrackedKeyPointsUn;
     std::mutex mMutexState;
+
+    // ros utils
+    cv::Mat mCurrentPosition;
+
 };
 
 }// namespace ORB_SLAM

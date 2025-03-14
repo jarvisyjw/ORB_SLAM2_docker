@@ -31,6 +31,18 @@
 #include<mutex>
 #include<thread>
 
+#include "Optimizer.h"
+
+#include "Thirdparty/g2o/g2o/core/block_solver.h"
+#include "Thirdparty/g2o/g2o/core/optimization_algorithm_levenberg.h"
+#include "Thirdparty/g2o/g2o/solvers/linear_solver_eigen.h"
+#include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
+#include "Thirdparty/g2o/g2o/core/robust_kernel_impl.h"
+#include "Thirdparty/g2o/g2o/solvers/linear_solver_dense.h"
+#include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
+
+#include <pangolin/pangolin.h>
+
 
 namespace ORB_SLAM2
 {
@@ -70,7 +82,6 @@ void LoopClosing::Run()
             {
             // Add a bool here to only detect but not optimize
             // Save detected loop
-
 
                // Compute similarity transformation [sR|t]
                // In the stereo/RGBD case s=1
@@ -349,6 +360,7 @@ bool LoopClosing::ComputeSim3()
                 // gScm -> Sim3 transformation from current KF to the matched KF
                 g2o::Sim3 gScm(Converter::toMatrix3d(R),Converter::toVector3d(t),s);
                 mScm = Converter::toCvMat(gScm);
+                mg2oScm = gScm;
                 cout << "Sim3 Transformation: " << endl << mScm << endl;
                 const int nInliers = Optimizer::OptimizeSim3(mpCurrentKF, pKF, vpMapPointMatches, gScm, 10, mbFixScale);
 
@@ -411,20 +423,38 @@ bool LoopClosing::ComputeSim3()
     }
 
     if(nTotalMatches>=40)
-    {
+    {   
+        // add an extra condition to check the loop;
         // What's the difference between nTotalMatches >= 40
+        cout << "Loop Detected and Passed the Geometric Verification!" << endl;
         cout << "Current KF ID: " << mpCurrentKF->mnId << endl;
         cout << "Matched KF ID: " << mpMatchedKF->mnId << endl;
         cout << "Total Matches: " << nTotalMatches << endl;
         cout << "Loop Transform from Matched KF to Current KF " << endl << mScm << endl;
+        cout << "Now Conduct Trajectory Similarity Verification!" << endl;
 
-        mpMatchedKF->AddLoopEdge(mpCurrentKF, nTotalMatches, mScm);
-        mpCurrentKF->AddLoopEdge(mpMatchedKF, nTotalMatches, Converter::computeInverseSimTransform(mScm));
+        if (ComputeTrajSim(mpMap, mpCurrentKF->mnId, mpMatchedKF->mnId, mg2oScm)){
+            cout << "Trajectory Similarity Verification Passed!" << endl;
+            cout << "Loop Detected!" << endl;
+            cout << "Current KF ID: " << mpCurrentKF->mnId << endl;
+            cout << "Matched KF ID: " << mpMatchedKF->mnId << endl;
+            cout << "Total Matches: " << nTotalMatches << endl;
+            cout << "Loop Transform from Matched KF to Current KF " << endl << mScm << endl;
 
-        for(int i=0; i<nInitialCandidates; i++)
-            if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
+            mpMatchedKF->AddLoopEdge(mpCurrentKF, nTotalMatches, mScm);
+            mpCurrentKF->AddLoopEdge(mpMatchedKF, nTotalMatches, Converter::computeInverseSimTransform(mScm));
+
+            for(int i=0; i<nInitialCandidates; i++)
+                if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
+                    mvpEnoughConsistentCandidates[i]->SetErase();
+            return true;
+        }
+        else{
+            for(int i=0; i<nInitialCandidates; i++)
                 mvpEnoughConsistentCandidates[i]->SetErase();
-        return true;
+            mpCurrentKF->SetErase();
+            return false;
+        }
     }
     else
     {
@@ -436,12 +466,227 @@ bool LoopClosing::ComputeSim3()
 
 }
 
-bool LoopClosing::ComputeTrajSim()
-{
+bool LoopClosing::ComputeTrajSim(Map* pMap, const int fromId, const int toId, const g2o::Sim3 &gScm)
+{   
+    cout << "Start Trajectory Similarity Verification!" << endl;
     // For each detected loop candidate we try to compute a trajectory similarity between the original trajectory and the using the loop candidate optimized trajectory 
     
+    // Setup Sim3 optimizer
+    g2o::SparseOptimizer optimizer;
+    optimizer.setVerbose(false);
+    g2o::BlockSolver_7_3::LinearSolverType * linearSolver =
+           new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();
+    g2o::BlockSolver_7_3 * solver_ptr= new g2o::BlockSolver_7_3(linearSolver);
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+
+    solver->setUserLambdaInit(1e-16);
+    optimizer.setAlgorithm(solver);
+
+    // create a pose graph with vertices of all keyframes
+    // retrieve all KeyFrames
+    const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
+    const unsigned int nMaxKFid = pMap->GetMaxKFid(); // max keyframe id
+    // create a vector of Sim3 poses
+    vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vScw(nMaxKFid+1); // poses of KFs
+    vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vCorrectedSwc(nMaxKFid+1); // corrected poses of KFs
+    vector<g2o::VertexSim3Expmap*> vpVertices(nMaxKFid+1); // vertices of KFs
+    // vector<cv::Mat,Eigen::aligned_allocator<cv::Mat> > vSwc(nMaxKFid+1); // poses of KFs
+
+    // Set KeyFrame vertices
+    cout << "Set KeyFrame Vertices!" << endl;
+    for(size_t i=0, iend=vpKFs.size(); i<iend;i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+        if(pKF->isBad())
+            continue;
+        g2o::VertexSim3Expmap* VSim3 = new g2o::VertexSim3Expmap();
+        const int nIDi = pKF->mnId; // KF's id
+        // vSwc[nIDi] = pKF->GetPoseInverse(); // camera to world transformation
+        cv::Mat Tcw = pKF->GetPose();
+        Eigen::Matrix<double,3,3> Rcw = Converter::toMatrix3d(Tcw.rowRange(0,3).colRange(0,3));
+        Eigen::Matrix<double,3,1> tcw = Converter::toVector3d(Tcw.rowRange(0,3).col(3));
+        g2o::Sim3 Scw(Rcw,tcw,1.0);
+        vScw[nIDi] = Scw;
+        VSim3->setEstimate(Scw);
+        VSim3->setId(nIDi);
+        VSim3->setMarginalized(false);
+        VSim3->_fix_scale = mbFixScale;
+        optimizer.addVertex(VSim3);
+        vpVertices[nIDi]=VSim3;
+        if (i == 0){
+            VSim3->setFixed(true);
+        }
+            
+        // LoopClosing::KeyFrameAndPose::const_iterator it = CorrectedSim3.find(pKF);
+
+        // if(it!=CorrectedSim3.end())
+        // {   
+        //     vScw[nIDi] = it->second; // camera to world transformation
+        //     VSim3->setEstimate(it->second);
+        // }
+        // else
+        // {
+        // Eigen::Matrix<double,3,3> Rcw = Converter::toMatrix3d(pKF->GetRotation().t());
+        // Eigen::Matrix<double,3,1> tcw = Converter::toVector3d(pKF->GetTranslation());
+        // g2o::Sim3 Siw(Rcw,tcw,1.0);
+        // vScw[nIDi] = Siw;
+        // VSim3->setEstimate(Siw);
+        // }
+
+        // if(pKF==pLoopKF)
+        //     // Set the Detected Loop Closure Frame as fixed 
+        //     VSim3->setFixed(true);
+
+        // VSim3->setId(nIDi);
+        // VSim3->setMarginalized(false);
+        // VSim3->_fix_scale = mbFixScale;
+
+        // optimizer.addVertex(VSim3);
+
+        // vpVertices[nIDi]=VSim3;
+    }
+
+    const Eigen::Matrix<double,7,7> matLambda = Eigen::Matrix<double,7,7>::Identity();
+    // set<pair<long unsigned int,long unsigned int> > sInsertedEdges;
+
+    // // insert loop candidate edge
+    // mScm = 
+    // g2o::Sim3 gScm(Converter::toMatrix3d(R),Converter::toVector3d(t),s);
+
+    g2o::EdgeSim3* e = new g2o::EdgeSim3();
+    e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(toId)));
+    e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(fromId)));
+    e->setMeasurement(gScm);
+    e->information() = matLambda;
+    optimizer.addEdge(e);
+
+    cout << "Loop Transform: " << endl << Converter::toCvMat(gScm) << endl;
+    // cout << "Original Transform" << endl << vScw[fromId] << endl;
+
+    cout << "Set Edges!" << endl;
+    // Set normal edges
+    for(size_t i=0, iend=vpKFs.size(); i<iend; i++){
+        KeyFrame* pKF = vpKFs[i];
+        const int nIDi = pKF->mnId;
+        g2o::Sim3 Swi;
+
+        // LoopClosing::KeyFrameAndPose::const_iterator iti = NonCorrectedSim3.find(pKF);
+
+        // if(iti!=NonCorrectedSim3.end())
+        //     Swi = (iti->second).inverse();
+        // else
+        Swi = vScw[nIDi].inverse();
+        KeyFrame* pParentKF = pKF->GetParent();
+        // Spanning tree edge
+        if(pParentKF)
+        {
+            int nIDj = pParentKF->mnId;
+            g2o::Sim3 Sjw;
+            Sjw = vScw[nIDj];
+            g2o::Sim3 Sji = Sjw * Swi;
+            g2o::EdgeSim3* e = new g2o::EdgeSim3();
+            e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDj)));
+            e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDi)));
+            e->setMeasurement(Sji);
+            e->information() = matLambda;
+            optimizer.addEdge(e);
+        }
+    }
+   
+    // debugging
+    cout << "Number of KeyFrames: " << vpKFs.size() << endl;
+    cout << "Number of Edges: " << optimizer.edges().size() << endl;
+    cout << "Start Optimization!" << endl;
+
+    // Optimize!
+    optimizer.initializeOptimization();
+    optimizer.setVerbose(true);
+    optimizer.optimize(20);
+    
+    for(size_t i=0;i<vpKFs.size();i++)
+    {
+        KeyFrame* pKFi = vpKFs[i];
+
+        const int nIDi = pKFi->mnId;
+
+        g2o::VertexSim3Expmap* VSim3 = static_cast<g2o::VertexSim3Expmap*>(optimizer.vertex(nIDi));
+        g2o::Sim3 CorrectedSiw =  VSim3->estimate();
+        vCorrectedSwc[nIDi]=CorrectedSiw.inverse();
+    }
+
+    // double ate;
+    vector<Eigen::Matrix4d> vGt;
+    vector<Eigen::Matrix4d> vEs;
+    vector<Eigen::Vector3d> points1, points2, points2_aligned;
+    double ate;
     
 
+    for(size_t i=0;i<vpKFs.size();i++)
+    {
+        KeyFrame* pKFi = vpKFs[i];
+        const int nIDi = pKFi->mnId;
+
+        cv::Mat Twc =  Converter::toCvMat(vScw[nIDi].inverse());
+        cv::Mat Twc_corrected =  Converter::toCvMat(vCorrectedSwc[nIDi]);
+
+        vGt.push_back(Converter::toMatrix4d(Twc));
+        vEs.push_back(Converter::toMatrix4d(Twc_corrected));
+
+        Eigen::Vector3d pt1;
+        Eigen::Vector3d pt2;
+        pt1 << Twc.at<float>(0,3), Twc.at<float>(1,3), Twc.at<float>(2,3);
+        pt2 << Twc_corrected.at<float>(0,3), Twc_corrected.at<float>(1,3), Twc_corrected.at<float>(2,3);
+
+        points1.push_back(pt1);
+        points2.push_back(pt2);
+    }
+
+    std::string filename_odom = "/ORB_SLAM2/ROS_output/test/odom" + std::to_string(mfiletimer) + ".txt";
+    std::string filename_optimized = "/ORB_SLAM2/ROS_output/test/optimized" + std::to_string(mfiletimer) + ".txt";
+    mfiletimer++;
+    // output vGt and vEs to separate files
+    WriteMatricesToFile(vGt, filename_odom);
+    WriteMatricesToFile(vEs, filename_optimized);
+
+    // Perform Umeyama alignment
+    Eigen::MatrixXd x = vectorToMatrix(points1);
+    Eigen::MatrixXd y = vectorToMatrix(points2);
+
+    auto result = umeyamaAlignment(x, y, true);
+    Eigen::Matrix3d R = result.rotation * result.scale;
+    Eigen::Quaterniond q(R);
+    Eigen::Vector3d t = result.translation;
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    T.block<3,3>(0,0) = R;
+    T.block<3,1>(0,3) = t;
+    Eigen::Matrix4d T_inv = T.inverse();
+    Eigen::Matrix3d R_inv = T_inv.block<3,3>(0,0);
+    Eigen::Vector3d t_inv = T_inv.block<3,1>(0,3);
+    for (const auto& p : points2){
+        Eigen::Vector3d p2_align = R_inv * p + t_inv;
+        points2_aligned.push_back(p2_align);
+    }
+
+    ate = computeRMSE(points1, points2_aligned);
+    cout << "FromId: " << fromId << " ToId: " << toId << endl;
+    cout << "ATE: " << ate << endl;
+
+    // ate = AlignTrajectory(vGt, vEs);
+    // DrawTrajectory(vGt, vEs);
+    // cout << "ATE: " << ate << endl;
+
+    // align the corrected and original poses
+    // compute the similarity transformation
+    // compute the error
+    // if the error is less than a threshold, return true
+    // else return false
+    if (ate < 0.3){
+        return true;
+    }
+    else{
+        return false;
+    }
+    // return false;   
 }
 // // Add save loop
 // void LoopClosing::SaveLoop(){
@@ -824,6 +1069,342 @@ bool LoopClosing::isFinished()
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
 }
+
+LoopClosing::UmeyamaResult LoopClosing::umeyamaAlignment(const Eigen::MatrixXd& x, const Eigen::MatrixXd& y, bool with_scale) {
+    checkMatrixDimensions(x, y);
+
+    // Means
+    Eigen::VectorXd mean_x = x.rowwise().mean();
+    Eigen::VectorXd mean_y = y.rowwise().mean();
+
+    // Variance
+    double sigma_x = (x.colwise() - mean_x).squaredNorm() / x.cols();
+
+    // Covariance matrix
+    Eigen::MatrixXd cov_xy = Eigen::MatrixXd::Zero(x.rows(), x.rows());
+    for (int i = 0; i < x.cols(); ++i) {
+        cov_xy += (y.col(i) - mean_y) * (x.col(i) - mean_x).transpose();
+    }
+    cov_xy /= x.cols();
+
+    // Singular Value Decomposition (SVD)
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(cov_xy, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::MatrixXd u = svd.matrixU();
+    Eigen::MatrixXd v = svd.matrixV();
+
+    // S matrix
+    Eigen::MatrixXd s = Eigen::MatrixXd::Identity(x.rows(), x.rows());
+    if (u.determinant() * v.determinant() < 0.0) {
+        s(x.rows() - 1, x.rows() - 1) = -1.0;
+    }
+
+    // Rotation matrix
+    Eigen::MatrixXd rotation = u * s * v.transpose();
+
+    // Scale and translation
+    double scale = with_scale ? (svd.singularValues().dot(s.diagonal()) / sigma_x) : 1.0;
+    Eigen::VectorXd translation = mean_y - scale * rotation * mean_x;
+
+    return {rotation, translation, scale};
+}
+
+Eigen::MatrixXd LoopClosing::vectorToMatrix(const std::vector<Eigen::Vector3d>& points) {
+    if (points.empty()) {
+        throw std::invalid_argument("Input vector is empty.");
+    }
+
+    Eigen::MatrixXd matrix(3, points.size());
+    for (size_t i = 0; i < points.size(); ++i) {
+        matrix.col(i) = points[i];
+    }
+
+    return matrix;
+}
+
+void LoopClosing::checkMatrixDimensions(const Eigen::MatrixXd& x, const Eigen::MatrixXd& y) {
+    if (x.rows() != y.rows() || x.cols() != y.cols()) {
+        throw std::invalid_argument("Data matrices must have the same shape.");
+    }
+}
+
+// double LoopClosing::AlignTrajectory(vector<Eigen::Matrix4d> gt, vector<Eigen::Matrix4d> es){
+//     // Align the trajectory using dynamic time warping
+//     // gt -> ground truth trajectory
+//     // es -> estimated trajectory
+//     // return the error
+//     // the error is the sum of the distance between the two trajectories
+//     // the distance is
+//     // d = sqrt((x1-x2)^2 + (y1-y2)^2 + (z1-z2)^2)
+//     // the error is the sum of the distance between the two trajectories
+//     cout << "Aligning traectories ..." << std::endl;
+    
+//     vector<Eigen::Matrix4d> vGt;
+//     vector<Eigen::Matrix4d> vEs;
+
+//     if (gt.size() != es.size())
+//     {
+//         std::cout << "size of groundtruth poses: " << gt.size() << std::endl; 
+//         std::cout << "size of estimated poses: " << es.size() << std::endl; 
+//         std::cerr << "for no association, size of estimated and ground truth trajectories must be equal." << std::endl;
+//         return -1.0;
+//     }
+//     else
+//     {
+//         for(std::vector<Eigen::Matrix4d>::iterator it = es.begin(); it != es.end(); ++it)
+//                 vEs.push_back(*it);
+
+//         for(std::vector<Eigen::Matrix4d>::iterator it = gt.begin(); it != gt.end(); ++it)
+//                 vGt.push_back(*it);
+
+//         return CalculateATE(vGt, vEs);
+//     }
+
+
+// }
+
+// double LoopClosing::CalculateATE(vector<Eigen::Matrix4d> gt, vector<Eigen::Matrix4d> es)
+// {
+
+// // convert pose vectors to Eigen matrices
+//     double ate;
+//     int N = gt.size();
+//     Eigen::MatrixXd gtMat(3,N);
+//     for (int i = 0; i < N; i++)
+//     {
+//         gtMat(0,i) = gt.at(i)(0,3);
+//         gtMat(1,i) = gt.at(i)(1,3);
+//         gtMat(2,i) = gt.at(i)(2,3);
+//     }
+
+
+//     int M = gt.size();
+//     Eigen::MatrixXd esMat(3,N);
+//     for (int i = 0; i < M; i++)
+//     {
+//         esMat(0,i) = es.at(i)(0,3);
+//         esMat(1,i) = es.at(i)(1,3);
+//         esMat(2,i) = es.at(i)(2,3);
+//     }
+
+//     // calculate the mean pose to zero-shift the poses
+//     Eigen::Vector3d gtMean = gtMat.rowwise().mean();
+//     Eigen::Vector3d esMean = esMat.rowwise().mean();
+
+//     Eigen::MatrixXd gtZeroMat(3,N);
+//     Eigen::MatrixXd esZeroMat(3,N);
+
+//     gtZeroMat = gtMat.colwise() - gtMean;
+//     esZeroMat = esMat.colwise() - esMean;
+
+//     // rotation, translation, scale, and absoulte trajector error (ate) 
+//     Eigen::Matrix3d rotation    = ATERotation(gtZeroMat, esZeroMat);
+//     double   scale       = ATEScale(gtZeroMat, esZeroMat, rotation);
+//     Eigen::Vector3d translation = ATETranslation(gtMat, esMat, scale, rotation, ate);
+
+//     cout << "Rotation is:    "<<  endl << rotation << endl<<endl;
+//     cout << "Scale is:       "<<  endl << scale << endl<<endl; 
+//     cout << "Translation is: "<<  endl << translation << endl<<endl; 
+//     cout << "Error is:       "<<  endl << ate << endl<<endl; 
+
+//     // Eigen::Matrix4d Mat;
+//     // Mat = Eigen::MatrixXd::Identity(4,4);
+
+//     // Mat.block<3,3>(0,0) = scale*rotation;
+//     // Mat.block<3,1>(0,3) = translation;
+//     // Mat.block<1,4>(3,0) << 0,0,0,1;
+
+//     return ate;
+
+// }
+
+// Eigen::Vector3d LoopClosing::ATETranslation(Eigen::MatrixXd model, Eigen::MatrixXd data, double scale, Eigen::MatrixXd rotation, double& ate)
+// {
+//     int N = model.cols();
+//     Eigen::Vector3d translation = data.rowwise().mean() - (scale*rotation)*(model.rowwise().mean());
+//     Eigen::MatrixXd rotatedModel(3,N);
+//     rotatedModel = (scale*rotation)*model;
+
+//     // error matrix E = [E1, E2, ...]
+//     Eigen::MatrixXd errorMat(3, N);
+//     errorMat = (rotatedModel.colwise() + translation) - data;
+//     // errorMat = model.colwise() - data;
+
+//     // Absoute Trajectory Error (ATE) = |||E1|| + ||E2||+ ... = \sum(||Ei||)
+//     for (int i = 0; i < N; i++)
+//         ate = ate + errorMat.col(i).norm();
+
+//     ate = ate/N;
+//     return translation;
+// }
+
+// double LoopClosing::ATEScale(Eigen::MatrixXd model, Eigen::MatrixXd data, Eigen::MatrixXd rotation)
+// {
+//     int cols = model.cols();
+//     Eigen::MatrixXd rotatedModel;
+//     rotatedModel = rotation * model;
+
+//     double dots = 0.0;
+//     double norms = 0.0;
+//     double normi = 0.0;
+
+//     //Model = [M0, M1, ...], Rotated Data = [R0, R1, ...]
+//     // W = M0.D0' + M1.D1' + ...  = \sum{Mi.Di}
+//     for (int i = 0; i < cols; i++)
+//     {
+//        Eigen::Vector3d v1 = data.col(i);
+//        Eigen::Vector3d v2 = rotatedModel.col(i);
+//        Eigen::Vector3d v3 = model.col(i);
+
+//        dots = dots + v1.transpose()*v2;
+//        normi = v3.norm();
+//        norms = norms + normi*normi;
+//     }
+
+//     // scale
+// //    return  1/(dots/norms);
+//     return  (dots/norms);
+//     //return 1;
+// }
+
+// Eigen::MatrixXd LoopClosing::ATERotation(Eigen::MatrixXd model, Eigen::MatrixXd data)
+// {
+//     Eigen::MatrixXd w;
+//     w = Eigen::MatrixXd::Identity(3,3);
+
+//     int cols = model.cols();
+
+//     //Model = [M0, M1, ...], Data = [D0, D1, ...]
+//     // W = M0*D0' + M1*D1' + ...  = \sum{Mi*Di}
+//     for (int i = 0; i < cols; i++)
+//         w = w + model.col(i) * data.col(i).transpose();
+
+//     Eigen::JacobiSVD<Eigen::MatrixXd> svd(w.transpose(), Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+//     Eigen::Matrix3d U = svd.matrixU();
+//     Eigen::Matrix3d V = svd.matrixV();
+//     float detV = V.determinant();
+//     float detU = U.determinant();
+
+//     Eigen::MatrixXd S;
+//     S = Eigen::MatrixXd::Identity(3,3);
+
+//     if(detU * detV < 0)
+//         S(2,2) = -1;
+
+//     Eigen::MatrixXd rot;
+//     rot = U * S * V.transpose();
+
+//     return rot;
+// }
+
+// void LoopClosing::DrawTrajectory(vector<Eigen::Matrix4d> poses1,
+//                     vector<Eigen::Matrix4d> poses2) {
+//     if (poses1.empty()&&poses2.empty()) {
+//         cerr << "Trajectory is empty!" << endl;
+//         return;
+//     }
+
+//     pangolin::CreateWindowAndBind("Trajectory Viewer", 1024, 768);
+//     glEnable(GL_DEPTH_TEST);
+//     glEnable(GL_BLEND);
+//     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+//     pangolin::OpenGlRenderState s_cam(
+//             pangolin::ProjectionMatrix(1024, 768, 500, 500, 512, 389, 0.1, 1000),
+//             pangolin::ModelViewLookAt(0, -0.1, -1.8, 0, 0, 0, 0.0, -1.0, 0.0)
+//     );
+
+//     pangolin::View &d_cam = pangolin::CreateDisplay()
+//             .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
+//             .SetHandler(new pangolin::Handler3D(s_cam));
+
+
+//     while (pangolin::ShouldQuit() == false) {
+//         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+//         d_cam.Activate(s_cam);
+//         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+//         glLineWidth(2);
+//         for (size_t i = 0; i < poses1.size()-1; i++) {    //因为没有构成回环，这里减2更好，不然会连成一条直线，若为回环就-1,也可以用pop_back()
+//             glColor3f(1.0f, 0.0f, 0.0f);
+//             glBegin(GL_LINES);
+//             auto p1 = poses1[i], p2 = poses1[i + 1];
+//             // , p2 = poses1[i + 1];
+//             glVertex3d(p1(4,0), p1(4,1), p1(4,2));
+//             glVertex3d(p2(4,0), p2(4,1), p2(4,2));
+//             glEnd();
+//         }
+//         for (size_t i = 0; i < poses2.size(); i++) {
+//             glColor3f(0.0f, 0.0f, 1.0f);
+//             glBegin(GL_LINES);
+//             auto p1 = poses2[i], p2 = poses2[i + 1];
+//             // , p2 = poses2[i + 1];
+//             glVertex3d(p1(4,0), p1(4,1), p1(4,2));
+//             glVertex3d(p2(4,0), p2(4,1), p2(4,2));
+//             glEnd();
+//         }
+//         pangolin::FinishFrame();
+//         usleep(5000);   // sleep 5 ms
+//     }
+
+// }
+
+void LoopClosing::WriteMatricesToFile(const std::vector<Eigen::Matrix4d>& vEs, const std::string& filename) {
+    // Open the file for writing
+    std::ofstream outFile(filename);
+    
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << " for writing." << std::endl;
+        return;
+    }
+    
+    // Iterate through the vector of matrices
+    for (size_t i = 0; i < vEs.size(); ++i) {
+        const Eigen::Matrix4d& mat = vEs[i]; // Get the current matrix in world frame
+        // convert the 
+        cv::Mat cvMat = Converter::toCvMat(mat);
+        cv::Mat R = cvMat.rowRange(0,3).colRange(0,3);
+        vector<float> q = Converter::toQuaternion(R);
+        cv::Mat t = cvMat.rowRange(0,3).col(3);
+        // Write the matrix to the file
+        outFile << i << " " << setprecision(7) << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
+          << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+
+        // outFile << "Matrix " << i + 1 << ":" << std::endl; // Optional: Label the matrix
+        // outFile << i << " "; // Label the matrix
+        // for (int row = 0; row < mat.rows() - 1; ++row) {
+        //     for (int col = 0; col < mat.cols(); ++col) {
+        //         if (row == 3 && col == 4){
+        //         outFile << mat(row, col) << std::endl; // Write element with a newline
+        //         }
+        //         else{
+        //             outFile << mat(row, col) << " "; // Write element with a space
+        //         }
+        //     }
+        //     // outFile << std::endl; // End of row
+        // }
+        // outFile << std::endl; // Separate matrices with a blank line
+    }
+    
+    // Close the file
+    outFile.close();
+    std::cout << "Matrices successfully written to " << filename << std::endl;
+}
+
+double LoopClosing::computeRMSE(const std::vector<Eigen::Vector3d>& poses1, const std::vector<Eigen::Vector3d>& poses2){
+    if (poses1.size() != poses2.size()) {
+        throw std::invalid_argument("Pose vectors must have the same size.");
+    }
+
+    double error_sum = 0.0;
+    for (size_t i = 0; i < poses1.size(); ++i) {
+        Eigen::Vector3d diff = poses1[i] - poses2[i];
+        error_sum += diff.squaredNorm();
+    }
+    return std::sqrt(error_sum / poses1.size());
+}
+
 
 
 } //namespace ORB_SLAM

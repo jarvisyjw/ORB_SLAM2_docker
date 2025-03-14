@@ -73,6 +73,16 @@ cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3)
     return toCvSE3(s*eigR,eigt);
 }
 
+Eigen::Matrix<double,4,4> Converter::toMatrix4d(const cv::Mat &cvMat)
+{
+    Eigen::Matrix<double,4,4> eigMat;
+    for(int i=0;i<4;i++)
+        for(int j=0; j<4; j++)
+            eigMat(i,j)=cvMat.at<float>(i,j);
+
+    return eigMat;
+}
+
 cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
 {
     cv::Mat cvMat(4,4,CV_32F);
@@ -181,5 +191,13 @@ std::vector<float> Converter::toQuaternion(const cv::Mat &M)
 
     return v;
 }
+
+// std::vector<float> Converter::toTanslation(const cv::Mat &M)
+// {
+//     Eigen::Matrix<double,3,1> v;
+//     v << cvVector.at<float>(0), cvVector.at<float>(1), cvVector.at<float>(2);
+
+//     return v;
+// }
 
 } //namespace ORB_SLAM

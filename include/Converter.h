@@ -39,6 +39,7 @@ public:
     static g2o::SE3Quat toSE3Quat(const g2o::Sim3 &gSim3);
 
     static cv::Mat toCvMat(const g2o::SE3Quat &SE3);
+    static Eigen::Matrix<double,4,4> toMatrix4d(const cv::Mat &cvMat);
     static cv::Mat toCvMat(const g2o::Sim3 &Sim3);
     static cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
     static cv::Mat toCvMat(const Eigen::Matrix3d &m);

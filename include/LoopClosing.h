@@ -29,6 +29,10 @@
 
 #include "KeyFrameDatabase.h"
 
+#include <Eigen/Eigen>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <Eigen/Core>
 #include <thread>
 #include <mutex>
 #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
@@ -49,6 +53,13 @@ public:
     typedef map<KeyFrame*,g2o::Sim3,std::less<KeyFrame*>,
         // Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
         Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3> > > KeyFrameAndPose;
+    
+    struct UmeyamaResult {
+        Eigen::MatrixXd rotation;  // Rotation matrix
+        Eigen::VectorXd translation;  // Translation vector
+        double scale;  // Scale factor
+    };
+
 public:
 
     LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale, const bool bCorrectLoop);
@@ -90,13 +101,36 @@ protected:
 
     bool ComputeSim3();
 
-    bool ComputeTrajSim();
+    // void DrawTrajectory(vector<Eigen::Matrix4d> poses1,
+    //                 vector<Eigen::Matrix4d> poses2);
+    
+    bool ComputeTrajSim(Map* pMap, const int fromId, const int toId, const g2o::Sim3 &gScm);
+    
+    UmeyamaResult umeyamaAlignment(const Eigen::MatrixXd& x, const Eigen::MatrixXd& y, bool with_scale);
+
+    double computeRMSE(const std::vector<Eigen::Vector3d>& poses1, const std::vector<Eigen::Vector3d>& poses2);
+
+    Eigen::MatrixXd vectorToMatrix(const std::vector<Eigen::Vector3d>& points);
+
+    void checkMatrixDimensions(const Eigen::MatrixXd& x, const Eigen::MatrixXd& y);
+
+    // double AlignTrajectory(vector<Eigen::Matrix4d> gt, vector<Eigen::Matrix4d> es);
+
+    // double CalculateATE(vector<Eigen::Matrix4d> gt, vector<Eigen::Matrix4d> es);
+    
+    // Eigen::MatrixXd ATERotation(Eigen::MatrixXd model, Eigen::MatrixXd data);
+
+    // double ATEScale(Eigen::MatrixXd model, Eigen::MatrixXd data, Eigen::MatrixXd rotation);
+    
+    // Eigen::Vector3d ATETranslation(Eigen::MatrixXd model, Eigen::MatrixXd data, double scale, Eigen::MatrixXd rotation, double& ate);
+
+    void WriteMatricesToFile(const std::vector<Eigen::Matrix4d>& vEs, const std::string& filename);
 
     void SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap);
 
     void CorrectLoop();
 
-    void SaveLoop();
+    // void SaveLoop();
 
     void ResetIfRequested();
     bool mbResetRequested;
@@ -137,11 +171,13 @@ protected:
     std::vector<MapPoint*> mvpLoopMapPoints;
     // CorrectLoop
     bool mbCorrectLoop;
+    int mfiletimer = 0;
     // std::vector<KeyFrame*> mvpLoopQuery;
     // std::vector<::vector<KeyFrame*>> mvpLoopCandidates;
 
     cv::Mat mScw;
     cv::Mat mScm;
+    g2o::Sim3 mg2oScm;
     g2o::Sim3 mg2oScw;
 
     long unsigned int mLastLoopKFid;

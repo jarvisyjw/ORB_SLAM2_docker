@@ -872,12 +872,14 @@ Output:
     // Loop Connections are What We Want
     for(map<KeyFrame *, set<KeyFrame *> >::const_iterator mit = LoopConnections.begin(), mend=LoopConnections.end(); mit!=mend; mit++)
     {
+        // loop query keyframe
         KeyFrame* pKF = mit->first;
         const long unsigned int nIDi = pKF->mnId;
         const set<KeyFrame*> &spConnections = mit->second;
         const g2o::Sim3 Siw = vScw[nIDi];
         const g2o::Sim3 Swi = Siw.inverse();
 
+        // connected keyframes
         for(set<KeyFrame*>::const_iterator sit=spConnections.begin(), send=spConnections.end(); sit!=send; sit++)
         {
             const long unsigned int nIDj = (*sit)->mnId;

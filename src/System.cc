@@ -286,7 +286,8 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-
+    
+    mCurrentPosition = Tcw.clone();
     return Tcw;
 }
 
@@ -592,5 +593,32 @@ vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
     unique_lock<mutex> lock(mMutexState);
     return mTrackedKeyPointsUn;
 }
+
+cv::Mat System::GetCurrentPosition()
+{
+    // unique_lock<mutex> lock(mMutexState);
+    return mCurrentPosition;
+}
+
+cv::Mat System::DrawCurrentFrame () {
+  return mpFrameDrawer->DrawFrame();
+}
+
+std::vector<MapPoint*> System::GetAllMapPoints() {
+  return mpMap->GetAllMapPoints();
+}
+
+// vector<MapPoint*> System::GetTrackedMapPoints()
+// {
+//     unique_lock<mutex> lock(mMutexState);
+//     return mTrackedMapPoints;
+// }
+
+// vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
+// {
+//     unique_lock<mutex> lock(mMutexState);
+//     return mTrackedKeyPointsUn;
+// }
+
 
 } //namespace ORB_SLAM
