@@ -7,9 +7,6 @@
     <arg name="loop_file" default="/ORB_SLAM2/ROS_output/loop/unitysim_00_loops_verify.txt"/>             
     <arg name="bag_file" default="/ORB_SLAM2/dataset/UnitySimulation_00.bag" />
 
-
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--pause $(arg bag_file)"/>
-
     <!-- Launch the ORB-SLAM3 node -->
     <node name="ORB_SLAM2" pkg="ORB_SLAM2" type="Mono" output="screen">
         <!-- Define the topics for the node -->
@@ -23,5 +20,7 @@
 
     </node>
 
+    <node name="static_transform_publisher" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 -0.7071, 0, 0, 0.7071 world camera_init" />
+    <!-- <node name="static_transform_publisher_" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0.5 -0.5 -0.5 0.5 camera_init body" /> -->
     <!-- Optionally, you can include other nodes or configurations here -->
 </launch>
